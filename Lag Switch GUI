@@ -199,82 +199,20 @@ content.Position = UDim2.new(0, 12, 0, 118)
 content.BackgroundTransparency = 1
 content.ClipsDescendants = true
 
--- === IMPORTANT CHANGE: make pages ScrollingFrames and add CanvasSize updater ===
-local foxiesPage = Instance.new("ScrollingFrame", content)
+-- Pages (foxies + settings) - we'll animate their Position to slide/fade and ensure only one visible
+local foxiesPage = Instance.new("Frame", content)
 foxiesPage.Name = "FoxiesPage"
 foxiesPage.Size = UDim2.new(1,0,1,0)
 foxiesPage.Position = UDim2.new(0,0,0,0)
 foxiesPage.BackgroundTransparency = 1
 foxiesPage.ClipsDescendants = true
-foxiesPage.Active = true
-foxiesPage.ScrollBarThickness = 8
-foxiesPage.ScrollBarImageColor3 = Color3.fromRGB(100,100,100)
-foxiesPage.CanvasSize = Vector2.new(0, 0)
 
-local settingsPage = Instance.new("ScrollingFrame", content)
+local settingsPage = Instance.new("Frame", content)
 settingsPage.Name = "SettingsPage"
 settingsPage.Size = UDim2.new(1,0,1,0)
 settingsPage.Position = UDim2.new(1,0,0,0) -- off-canvas
 settingsPage.BackgroundTransparency = 1
 settingsPage.ClipsDescendants = true
-settingsPage.Active = true
-settingsPage.ScrollBarThickness = 8
-settingsPage.ScrollBarImageColor3 = Color3.fromRGB(100,100,100)
-settingsPage.CanvasSize = Vector2.new(0, 0)
-
--- helper to compute required CanvasSize based on children's AbsolutePosition/AbsoluteSize
-local function updateCanvasSizeFor(scrollingFrame)
-	-- defer to next frame to ensure AbsolutePosition/Size are up-to-date
-	task.defer(function()
-		if not scrollingFrame or not scrollingFrame.Parent then return end
-		local parentAbsY = scrollingFrame.AbsolutePosition.Y
-		local maxBottom = 0
-		for _, child in ipairs(scrollingFrame:GetChildren()) do
-			if child:IsA("GuiObject") and child.Visible then
-				-- child.AbsolutePosition/Size are valid after layout; guard with pcall
-				local ok, ap = pcall(function() return child.AbsolutePosition end)
-				local ok2, asz = pcall(function() return child.AbsoluteSize end)
-				if ok and ok2 and ap and asz then
-					local bottom = (ap.Y - parentAbsY) + asz.Y
-					if bottom > maxBottom then maxBottom = bottom end
-				end
-			end
-		end
-		-- make sure canvas is at least slightly larger than frame so scrolling behaves predictably
-		local minCanvas = scrollingFrame.AbsoluteSize.Y
-		local desired = math.max(minCanvas, maxBottom + 16)
-		-- set CanvasSize (x=0 so only vertical)
-		scrollingFrame.CanvasSize = Vector2.new(0, math.ceil(desired))
-	end)
-end
-
--- attach watchers so CanvasSize updates when children or sizes change
-local function watchAndUpdate(scrollingFrame)
-	if not scrollingFrame then return end
-	-- initial update after short delay
-	task.delay(0.02, function() updateCanvasSizeFor(scrollingFrame) end)
-	-- when children added/removed -> update (and hookup child changed)
-	scrollingFrame.ChildAdded:Connect(function(child)
-		-- small delay to let properties settle
-		task.delay(0.02, function()
-			updateCanvasSizeFor(scrollingFrame)
-		end)
-		-- watch the child for position/size/visibility changes to recalc
-		if child:IsA("GuiObject") then
-			child:GetPropertyChangedSignal("AbsolutePosition"):Connect(function() updateCanvasSizeFor(scrollingFrame) end)
-			child:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() updateCanvasSizeFor(scrollingFrame) end)
-			child:GetPropertyChangedSignal("Visible"):Connect(function() updateCanvasSizeFor(scrollingFrame) end)
-		end
-	end)
-	scrollingFrame.ChildRemoved:Connect(function() task.defer(function() updateCanvasSizeFor(scrollingFrame) end) end)
-	-- when the scrolling frame itself resizes or moves, update
-	scrollingFrame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() updateCanvasSizeFor(scrollingFrame) end)
-	scrollingFrame:GetPropertyChangedSignal("AbsolutePosition"):Connect(function() updateCanvasSizeFor(scrollingFrame) end)
-end
-
--- start watching both pages
-watchAndUpdate(foxiesPage)
-watchAndUpdate(settingsPage)
 
 -- Foxies page layout (left & right columns)
 local leftCol = Instance.new("Frame", foxiesPage); leftCol.Size = UDim2.new(0.64, -8, 1, 0); leftCol.Position = UDim2.new(0,0,0,0); leftCol.BackgroundTransparency = 1; leftCol.ClipsDescendants = true
