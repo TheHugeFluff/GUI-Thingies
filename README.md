@@ -4,3 +4,4 @@ THIS IS STILL TECHNICALLY UNFINISHED!!!
 
 I don't know when I will fully finish it
 Config may not work
+Toast is in the GUI
