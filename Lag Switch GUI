@@ -1,6 +1,3 @@
--- Fox Party <3 — Final Polished (LocalScript)
--- Place in StarterGui or StarterPlayerScripts
-
 -- Services
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -312,8 +309,11 @@ end
 
 -- Real-time saving
 local function persistConfig()
+	-- build a fresh cfg from the currently saved attribute (so we don't lose other keys)
 	local cfg = getAttr("FP_config") or {}
 	if type(cfg) ~= "table" then cfg = {} end
+
+	-- update cfg from current UI/visual state (these are the canonical sources)
 	cfg.enableScript = enableBox.Text
 	cfg.disableScript = disableBox.Text
 	cfg.funnyScript = funnyBox.Text
@@ -326,12 +326,18 @@ local function persistConfig()
 	cfg.title_text = titleLabel.Text
 	cfg.tab_left = leftTabBtn.Text
 	cfg.tab_right = rightTabBtn.Text
-	cfg.show_toasts = configNow.show_toasts
-	cfg.hearts_per_interval = configNow.hearts_per_interval
-	cfg.heart_interval = configNow.heart_interval
+
+	-- preserve values that are stored in configNow if not directly changed here
+	cfg.show_toasts = (cfg.show_toasts ~= nil) and cfg.show_toasts or configNow.show_toasts
+	cfg.hearts_per_interval = (cfg.hearts_per_interval ~= nil) and cfg.hearts_per_interval or configNow.hearts_per_interval
+	cfg.heart_interval = (cfg.heart_interval ~= nil) and cfg.heart_interval or configNow.heart_interval
 	cfg.saveMode = configNow.saveMode or DEFAULT.saveMode
 
+	-- persist to attribute and optionally to file
 	setAttr("FP_config", cfg)
+	-- CHANGED: keep in-memory copy in sync
+	configNow = cfg -- CHANGED
+
 	if cfg.saveMode == "file" or cfg.saveMode == "file_or_memory" then
 		pcall(function() writeConfigFile(cfg) end)
 	end
@@ -451,8 +457,14 @@ applyBtn.MouseButton1Click:Connect(function()
 	titleLabel.TextColor3 = Color3.fromRGB(unpack(cfg.textColor or DEFAULT.textColor))
 	titleLabel.TextSize = cfg.fontSize or titleLabel.TextSize
 
+	-- CHANGED: ensure tabs immediately reflect the chosen colors and persist
+	leftTabBtn.BackgroundColor3 = Color3.fromRGB(unpack(cfg.buttonColor or DEFAULT.buttonColor)) -- CHANGED
+	rightTabBtn.BackgroundColor3 = Color3.fromRGB(60,60,60) -- keep right dim by default (same UX as original) -- CHANGED
+
 	setAttr("FP_config", cfg)
-	persistConfig()
+	-- CHANGED: update in-memory configNow and persist so file + attributes are synced
+	configNow = cfg -- CHANGED
+	persistConfig() -- CHANGED
 	showToast("Settings applied")
 end)
 
@@ -465,7 +477,7 @@ end)
 loadBtn.MouseButton1Click:Connect(function()
 	local ok, fileCfg = readConfigFile()
 	if ok then
-		configNow = fileCfg
+		configNow = fileCfg -- CHANGED: keep in-memory sync
 		enableBox.Text = fileCfg.enableScript or enableBox.Text
 		disableBox.Text = fileCfg.disableScript or disableBox.Text
 		funnyBox.Text = fileCfg.funnyScript or funnyBox.Text
@@ -474,13 +486,16 @@ loadBtn.MouseButton1Click:Connect(function()
 		titleLabel.Text = fileCfg.title_text or titleLabel.Text
 		leftTabBtn.Text = fileCfg.tab_left or leftTabBtn.Text
 		rightTabBtn.Text = fileCfg.tab_right or rightTabBtn.Text
+		-- ensure visual tab color is consistent immediately
+		leftTabBtn.BackgroundColor3 = Color3.fromRGB(unpack(fileCfg.buttonColor or DEFAULT.buttonColor)) -- CHANGED
+		rightTabBtn.BackgroundColor3 = Color3.fromRGB(60,60,60) -- CHANGED
 		setAttr("FP_config", fileCfg)
 		showToast("Config loaded (file)")
 		return
 	end
 	local attr = getAttr("FP_config")
 	if type(attr) == "table" then
-		configNow = attr
+		configNow = attr -- CHANGED
 		enableBox.Text = attr.enableScript or enableBox.Text
 		disableBox.Text = attr.disableScript or disableBox.Text
 		funnyBox.Text = attr.funnyScript or funnyBox.Text
@@ -489,6 +504,9 @@ loadBtn.MouseButton1Click:Connect(function()
 		titleLabel.Text = attr.title_text or titleLabel.Text
 		leftTabBtn.Text = attr.tab_left or leftTabBtn.Text
 		rightTabBtn.Text = attr.tab_right or rightTabBtn.Text
+		-- ensure immediate visual sync
+		leftTabBtn.BackgroundColor3 = Color3.fromRGB(unpack(attr.buttonColor or DEFAULT.buttonColor)) -- CHANGED
+		rightTabBtn.BackgroundColor3 = Color3.fromRGB(60,60,60) -- CHANGED
 		showToast("Config loaded (memory)")
 	else
 		showToast("No config found")
@@ -503,7 +521,7 @@ importBtn.MouseButton1Click:Connect(function()
 	if not txt or txt:match("^%s*$") then exportBox.Text = "-- No JSON provided --"; showToast("No JSON"); return end
 	local dec = safeDecode(txt)
 	if not dec or type(dec) ~= "table" then exportBox.Text = "-- Invalid JSON --"; showToast("Invalid JSON"); return end
-	configNow = dec
+	configNow = dec -- CHANGED
 	enableBox.Text = dec.enableScript or enableBox.Text
 	disableBox.Text = dec.disableScript or disableBox.Text
 	funnyBox.Text = dec.funnyScript or funnyBox.Text
@@ -512,7 +530,11 @@ importBtn.MouseButton1Click:Connect(function()
 	titleLabel.Text = dec.title_text or titleLabel.Text
 	leftTabBtn.Text = dec.tab_left or leftTabBtn.Text
 	rightTabBtn.Text = dec.tab_right or rightTabBtn.Text
+	-- immediate visual sync
+	leftTabBtn.BackgroundColor3 = Color3.fromRGB(unpack(dec.buttonColor or DEFAULT.buttonColor)) -- CHANGED
+	rightTabBtn.BackgroundColor3 = Color3.fromRGB(60,60,60) -- CHANGED
 	setAttr("FP_config", dec)
+	persistConfig() -- ensure file + attribute written if saveMode allows
 	showToast("Imported and applied")
 end)
 
@@ -643,4 +665,4 @@ TweenService:Create(main, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {Position 
 leftTabBtn.BackgroundColor3 = Color3.fromRGB(unpack(configNow.buttonColor or DEFAULT.buttonColor))
 rightTabBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 
-print("[FoxParty] Final polished GUI loaded. Everything contained inside the main window.")
+print("[FoxParty] Polished GUI loaded. Everything contained inside the main window.")
