@@ -2,6 +2,4 @@ Ignore the commit or whatever, I'm lazy and this is my first time making a post 
 
 THIS IS STILL TECHNICALLY UNFINISHED!!!
 
-I don't know when I will fully finish it
-Config may not work
-Toast is in the GUI
+I don't know when I will fully finish it, Config may not work, and the Toast is in the GUI
