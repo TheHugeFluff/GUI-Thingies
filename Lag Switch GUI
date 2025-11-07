@@ -1,3 +1,5 @@
+-- Polished + Settings/Config Fixes + Backup
+
 -- Services
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -27,6 +29,7 @@ local function warnf(...) warn("[FoxParty]", ...) end
 -- Config
 local GUI_NAME = "Fox Party <3"
 local CONFIG_FILENAME = "FoxParty_Config.json"
+local BACKUP_FILENAME = CONFIG_FILENAME .. ".bak"
 
 local DEFAULT = {
 	windowSize = {600, 420}, -- moderately larger
@@ -75,9 +78,24 @@ local function writeConfigFile(tbl)
 	local ok, err = pcall(function() writefile(CONFIG_FILENAME, enc) end)
 	return ok, err
 end
+local function writeBackupFile(tbl)
+	if not hasFileIO() then return false, "no_fileio" end
+	local enc = safeEncode(tbl)
+	if not enc then return false, "encode_failed" end
+	local ok, err = pcall(function() writefile(BACKUP_FILENAME, enc) end)
+	return ok, err
+end
 local function readConfigFile()
 	if not hasFileIO() then return false, "no_fileio" end
 	local ok, content = pcall(function() return readfile(CONFIG_FILENAME) end)
+	if not ok then return false, content end
+	local dec = safeDecode(content)
+	if type(dec) == "table" then return true, dec end
+	return false, "bad_json"
+end
+local function readBackupFile()
+	if not hasFileIO() then return false, "no_fileio" end
+	local ok, content = pcall(function() return readfile(BACKUP_FILENAME) end)
 	if not ok then return false, content end
 	local dec = safeDecode(content)
 	if type(dec) == "table" then return true, dec end
@@ -335,8 +353,8 @@ local function persistConfig()
 
 	-- persist to attribute and optionally to file
 	setAttr("FP_config", cfg)
-	-- CHANGED: keep in-memory copy in sync
-	configNow = cfg -- CHANGED
+	-- keep in-memory copy in sync
+	configNow = cfg
 
 	if cfg.saveMode == "file" or cfg.saveMode == "file_or_memory" then
 		pcall(function() writeConfigFile(cfg) end)
@@ -423,6 +441,11 @@ local loadBtn = applyBtn:Clone(); loadBtn.Parent = settingsPage; loadBtn.Positio
 local exportBtn = loadBtn:Clone(); exportBtn.Parent = settingsPage; exportBtn.Position = UDim2.new(0.54,0,0,sY); exportBtn.Text = "Export JSON"; exportBtn.BackgroundColor3 = Color3.fromRGB(110,100,100)
 sY = sY + 46
 
+-- Backup / Restore buttons (new)
+local backupBtn = Instance.new("TextButton", settingsPage); backupBtn.Size = UDim2.new(0,140,0,34); backupBtn.Position = UDim2.new(0.04,0,0,sY); backupBtn.Text = "Make Backup"; backupBtn.Font = Enum.Font.Gotham; backupBtn.BackgroundColor3 = Color3.fromRGB(200,150,50)
+local restoreBtn = backupBtn:Clone(); restoreBtn.Parent = settingsPage; restoreBtn.Position = UDim2.new(0.54,0,0,sY); restoreBtn.Text = "Restore Backup"; restoreBtn.BackgroundColor3 = Color3.fromRGB(120,100,200)
+sY = sY + 46
+
 -- heart controls behavior
 local heartCount = tonumber(configNow.hearts_per_interval) or DEFAULT.hearts_per_interval
 local heartInterval = tonumber(configNow.heart_interval) or DEFAULT.heart_interval
@@ -450,6 +473,8 @@ applyBtn.MouseButton1Click:Connect(function()
 	if leftTabInput.Text ~= "" then cfg.tab_left = leftTabInput.Text; leftTabBtn.Text = cfg.tab_left end
 	if rightTabInput.Text ~= "" then cfg.tab_right = rightTabInput.Text; rightTabBtn.Text = cfg.tab_right end
 
+	-- NOTE: We intentionally do not change cfg.bgColor/topBarColor unless user provides UI for them,
+	-- to avoid unexpectedly changing background if not edited.
 	main.BackgroundColor3 = Color3.fromRGB(unpack(cfg.bgColor or DEFAULT.bgColor))
 	topBar.BackgroundColor3 = Color3.fromRGB(unpack(cfg.topBarColor or DEFAULT.topBarColor))
 	enableBtn.BackgroundColor3 = Color3.fromRGB(unpack(cfg.buttonColor or DEFAULT.buttonColor))
@@ -457,27 +482,47 @@ applyBtn.MouseButton1Click:Connect(function()
 	titleLabel.TextColor3 = Color3.fromRGB(unpack(cfg.textColor or DEFAULT.textColor))
 	titleLabel.TextSize = cfg.fontSize or titleLabel.TextSize
 
-	-- CHANGED: ensure tabs immediately reflect the chosen colors and persist
-	leftTabBtn.BackgroundColor3 = Color3.fromRGB(unpack(cfg.buttonColor or DEFAULT.buttonColor)) -- CHANGED
-	rightTabBtn.BackgroundColor3 = Color3.fromRGB(60,60,60) -- keep right dim by default (same UX as original) -- CHANGED
+	-- ensure tabs immediately reflect the chosen colors and persist
+	leftTabBtn.BackgroundColor3 = Color3.fromRGB(unpack(cfg.buttonColor or DEFAULT.buttonColor))
+	rightTabBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 
 	setAttr("FP_config", cfg)
-	-- CHANGED: update in-memory configNow and persist so file + attributes are synced
-	configNow = cfg -- CHANGED
-	persistConfig() -- CHANGED
+	-- update in-memory configNow and persist so file + attributes are synced
+	configNow = cfg
+	persistConfig()
 	showToast("Settings applied")
 end)
 
--- Export/Load/Save/Import behavior
+-- Save/Export/Load behavior
+saveBtn.MouseButton1Click:Connect(function()
+	-- persist current UI to configNow/attribute first
+	persistConfig()
+	-- write to file if fileIO available and saveMode allows
+	local cfg = configNow or loadBestConfig()
+	local ok, err = writeConfigFile(cfg)
+	if ok then
+		showToast("Config saved to file")
+	else
+		-- fallback: if no fileIO, still saved to attribute/memory
+		if err == "no_fileio" then
+			showToast("Saved in memory (no file I/O)")
+		else
+			showToast("Save failed")
+			warnf("Save failed:", err)
+		end
+	end
+end)
+
 exportBtn.MouseButton1Click:Connect(function()
 	local cfg = loadBestConfig()
 	exportBox.Text = safeEncode(cfg) or "-- export failed --"
 	showToast("Export ready")
 end)
+
 loadBtn.MouseButton1Click:Connect(function()
 	local ok, fileCfg = readConfigFile()
 	if ok then
-		configNow = fileCfg -- CHANGED: keep in-memory sync
+		configNow = fileCfg
 		enableBox.Text = fileCfg.enableScript or enableBox.Text
 		disableBox.Text = fileCfg.disableScript or disableBox.Text
 		funnyBox.Text = fileCfg.funnyScript or funnyBox.Text
@@ -487,15 +532,16 @@ loadBtn.MouseButton1Click:Connect(function()
 		leftTabBtn.Text = fileCfg.tab_left or leftTabBtn.Text
 		rightTabBtn.Text = fileCfg.tab_right or rightTabBtn.Text
 		-- ensure visual tab color is consistent immediately
-		leftTabBtn.BackgroundColor3 = Color3.fromRGB(unpack(fileCfg.buttonColor or DEFAULT.buttonColor)) -- CHANGED
-		rightTabBtn.BackgroundColor3 = Color3.fromRGB(60,60,60) -- CHANGED
+		leftTabBtn.BackgroundColor3 = Color3.fromRGB(unpack(fileCfg.buttonColor or DEFAULT.buttonColor))
+		rightTabBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 		setAttr("FP_config", fileCfg)
+		persistConfig()
 		showToast("Config loaded (file)")
 		return
 	end
 	local attr = getAttr("FP_config")
 	if type(attr) == "table" then
-		configNow = attr -- CHANGED
+		configNow = attr
 		enableBox.Text = attr.enableScript or enableBox.Text
 		disableBox.Text = attr.disableScript or disableBox.Text
 		funnyBox.Text = attr.funnyScript or funnyBox.Text
@@ -505,8 +551,8 @@ loadBtn.MouseButton1Click:Connect(function()
 		leftTabBtn.Text = attr.tab_left or leftTabBtn.Text
 		rightTabBtn.Text = attr.tab_right or rightTabBtn.Text
 		-- ensure immediate visual sync
-		leftTabBtn.BackgroundColor3 = Color3.fromRGB(unpack(attr.buttonColor or DEFAULT.buttonColor)) -- CHANGED
-		rightTabBtn.BackgroundColor3 = Color3.fromRGB(60,60,60) -- CHANGED
+		leftTabBtn.BackgroundColor3 = Color3.fromRGB(unpack(attr.buttonColor or DEFAULT.buttonColor))
+		rightTabBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 		showToast("Config loaded (memory)")
 	else
 		showToast("No config found")
@@ -521,7 +567,7 @@ importBtn.MouseButton1Click:Connect(function()
 	if not txt or txt:match("^%s*$") then exportBox.Text = "-- No JSON provided --"; showToast("No JSON"); return end
 	local dec = safeDecode(txt)
 	if not dec or type(dec) ~= "table" then exportBox.Text = "-- Invalid JSON --"; showToast("Invalid JSON"); return end
-	configNow = dec -- CHANGED
+	configNow = dec
 	enableBox.Text = dec.enableScript or enableBox.Text
 	disableBox.Text = dec.disableScript or disableBox.Text
 	funnyBox.Text = dec.funnyScript or funnyBox.Text
@@ -531,11 +577,57 @@ importBtn.MouseButton1Click:Connect(function()
 	leftTabBtn.Text = dec.tab_left or leftTabBtn.Text
 	rightTabBtn.Text = dec.tab_right or rightTabBtn.Text
 	-- immediate visual sync
-	leftTabBtn.BackgroundColor3 = Color3.fromRGB(unpack(dec.buttonColor or DEFAULT.buttonColor)) -- CHANGED
-	rightTabBtn.BackgroundColor3 = Color3.fromRGB(60,60,60) -- CHANGED
+	leftTabBtn.BackgroundColor3 = Color3.fromRGB(unpack(dec.buttonColor or DEFAULT.buttonColor))
+	rightTabBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 	setAttr("FP_config", dec)
 	persistConfig() -- ensure file + attribute written if saveMode allows
 	showToast("Imported and applied")
+end)
+
+-- Backup functionality
+backupBtn.MouseButton1Click:Connect(function()
+	-- ensure we persist latest UI into configNow
+	persistConfig()
+	local ok, err = writeBackupFile(configNow)
+	if ok then
+		showToast("Backup created")
+	else
+		if err == "no_fileio" then
+			showToast("Backup skipped (no file I/O)")
+		else
+			showToast("Backup failed")
+			warnf("Backup failed:", err)
+		end
+	end
+end)
+
+restoreBtn.MouseButton1Click:Connect(function()
+	-- try to restore from backup file
+	local ok, dec = readBackupFile()
+	if ok and type(dec) == "table" then
+		configNow = dec
+		-- apply to UI
+		enableBox.Text = dec.enableScript or enableBox.Text
+		disableBox.Text = dec.disableScript or disableBox.Text
+		funnyBox.Text = dec.funnyScript or funnyBox.Text
+		enableBtn.BackgroundColor3 = Color3.fromRGB(unpack(dec.buttonColor or DEFAULT.buttonColor))
+		disableBtn.BackgroundColor3 = Color3.fromRGB(unpack(dec.accentColor or DEFAULT.accentColor))
+		titleLabel.Text = dec.title_text or titleLabel.Text
+		leftTabBtn.Text = dec.tab_left or leftTabBtn.Text
+		rightTabBtn.Text = dec.tab_right or rightTabBtn.Text
+		-- sync visuals
+		leftTabBtn.BackgroundColor3 = Color3.fromRGB(unpack(dec.buttonColor or DEFAULT.buttonColor))
+		rightTabBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+		setAttr("FP_config", dec)
+		persistConfig()
+		showToast("Backup restored")
+		return
+	end
+	if dec == "no_fileio" then
+		showToast("No file I/O to restore from")
+	else
+		showToast("No backup found")
+	end
 end)
 
 -- Tab switching (smooth fade & slide)
