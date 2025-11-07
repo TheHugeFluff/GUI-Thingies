@@ -1,4 +1,4 @@
--- Polished + Settings/Config Fixes + Backup
+-- Polished + Settings/Config Fixes + Backup (modified: removed export/import UI + added scroll for pages + close button as "X")
 
 -- Services
 local Players = game:GetService("Players")
@@ -178,10 +178,29 @@ titleLabel.Position = UDim2.new(0, 12, 0, 8)
 titleLabel.Size = UDim2.new(0.6, 0, 1, -12)
 titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 
--- Controls: minimize / close
-local controls = Instance.new("Frame", topBar); controls.Size = UDim2.new(0, 96, 1, 0); controls.Position = UDim2.new(1, -100, 0, 0); controls.BackgroundTransparency = 1
-local minBtn = Instance.new("TextButton", controls); minBtn.Size = UDim2.new(0,44,1,0); minBtn.Position = UDim2.new(0,0,0,0); minBtn.Text = "—"; minBtn.Font = Enum.Font.Gotham; minBtn.TextSize = 18; minBtn.BackgroundTransparency = 1; minBtn.TextColor3 = Color3.fromRGB(220,220,220)
-local closeBtn = Instance.new("TextButton", controls); closeBtn.Size = UDim2.new(0,44,1,0); closeBtn.Position = UDim2.new(0,52,0,0); closeBtn.Text = "✕"; closeBtn.Font = Enum.Font.Gotham; closeBtn.TextSize = 16; closeBtn.BackgroundTransparency = 1; closeBtn.TextColor3 = Color3.fromRGB(220,220,220)
+-- Controls: minimize / close (small tweak: close shows "X" and GothamBold)
+local controls = Instance.new("Frame", topBar)
+controls.Size = UDim2.new(0, 96, 1, 0)
+controls.Position = UDim2.new(1, -100, 0, 0)
+controls.BackgroundTransparency = 1
+
+local minBtn = Instance.new("TextButton", controls)
+minBtn.Size = UDim2.new(0,44,1,0)
+minBtn.Position = UDim2.new(0,0,0,0)
+minBtn.Text = "—"
+minBtn.Font = Enum.Font.Gotham
+minBtn.TextSize = 18
+minBtn.BackgroundTransparency = 1
+minBtn.TextColor3 = Color3.fromRGB(220,220,220)
+
+local closeBtn = Instance.new("TextButton", controls)
+closeBtn.Size = UDim2.new(0,44,1,0)
+closeBtn.Position = UDim2.new(0,52,0,0)
+closeBtn.Text = "X"
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 18
+closeBtn.BackgroundTransparency = 1
+closeBtn.TextColor3 = Color3.fromRGB(220,220,220)
 
 -- Tab strip (inside main)
 local tabStrip = Instance.new("Frame", main)
@@ -214,20 +233,30 @@ content.Position = UDim2.new(0, 12, 0, 118)
 content.BackgroundTransparency = 1
 content.ClipsDescendants = true
 
--- Pages (foxies + settings) - we'll animate their Position to slide/fade and ensure only one visible
-local foxiesPage = Instance.new("Frame", content)
+-- Pages (foxies + settings) - make these ScrollingFrames so a scrollbar appears when content exceeds visible area
+local foxiesPage = Instance.new("ScrollingFrame", content)
 foxiesPage.Name = "FoxiesPage"
 foxiesPage.Size = UDim2.new(1,0,1,0)
 foxiesPage.Position = UDim2.new(0,0,0,0)
 foxiesPage.BackgroundTransparency = 1
 foxiesPage.ClipsDescendants = true
+foxiesPage.CanvasSize = UDim2.new(0,0,0,1200) -- generous canvas to allow vertical scrolling
+foxiesPage.ScrollBarThickness = 8
+foxiesPage.ScrollBarImageColor3 = Color3.fromRGB(200,200,200)
+foxiesPage.ScrollingEnabled = true
+foxiesPage.ScrollBarImageTransparency = 0.6
 
-local settingsPage = Instance.new("Frame", content)
+local settingsPage = Instance.new("ScrollingFrame", content)
 settingsPage.Name = "SettingsPage"
 settingsPage.Size = UDim2.new(1,0,1,0)
-settingsPage.Position = UDim2.new(1,0,0,0) -- off-canvas
+settingsPage.Position = UDim2.new(1,0,0,0) -- off-canvas initially
 settingsPage.BackgroundTransparency = 1
 settingsPage.ClipsDescendants = true
+settingsPage.CanvasSize = UDim2.new(0,0,0,1200)
+settingsPage.ScrollBarThickness = 8
+settingsPage.ScrollBarImageColor3 = Color3.fromRGB(200,200,200)
+settingsPage.ScrollingEnabled = true
+settingsPage.ScrollBarImageTransparency = 0.6
 
 -- Foxies page layout (left & right columns)
 local leftCol = Instance.new("Frame", foxiesPage); leftCol.Size = UDim2.new(0.64, -8, 1, 0); leftCol.Position = UDim2.new(0,0,0,0); leftCol.BackgroundTransparency = 1; leftCol.ClipsDescendants = true
@@ -425,13 +454,7 @@ local toastLbl = Instance.new("TextLabel", settingsPage); toastLbl.Size = UDim2.
 local toastToggle = Instance.new("TextButton", settingsPage); toastToggle.Size = UDim2.new(0.5,-8,0,26); toastToggle.Position = UDim2.new(0.5,8,0,sY-2); toastToggle.BackgroundColor3 = Color3.fromRGB(80,80,80); toastToggle.Font = Enum.Font.Gotham; toastToggle.Text = (configNow.show_toasts and "On" or "Off")
 sY = sY + 36
 
--- Export/import controls
-local exportBox = Instance.new("TextBox", settingsPage); exportBox.Size = UDim2.new(1,-16,0,64); exportBox.Position = UDim2.new(0,8,0,sY); exportBox.MultiLine = true; exportBox.Font = Enum.Font.SourceSans; exportBox.TextSize = 12; exportBox.BackgroundColor3 = Color3.fromRGB(22,22,22); exportBox.Text = "-- export will appear here --"
-local ec = Instance.new("UICorner", exportBox); ec.CornerRadius = UDim.new(0,8)
-sY = sY + 72
-local importBox = Instance.new("TextBox", settingsPage); importBox.Size = UDim2.new(1,-16,0,64); importBox.Position = UDim2.new(0,8,0,sY); importBox.MultiLine = true; importBox.Font = Enum.Font.SourceSans; importBox.TextSize = 12; importBox.BackgroundColor3 = Color3.fromRGB(22,22,22); importBox.Text = "-- paste JSON here to import --"
-local ic = Instance.new("UICorner", importBox); ic.CornerRadius = UDim.new(0,8)
-sY = sY + 72
+-- (removed JSON export/import textboxes and their sY offsets here)
 
 -- Action buttons
 local applyBtn = Instance.new("TextButton", settingsPage); applyBtn.Size = UDim2.new(0,140,0,34); applyBtn.Position = UDim2.new(0.04,0,0,sY); applyBtn.Text = "Apply Settings"; applyBtn.Font = Enum.Font.Gotham; applyBtn.BackgroundColor3 = Color3.fromRGB(100,100,100)
@@ -513,11 +536,8 @@ saveBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
-exportBtn.MouseButton1Click:Connect(function()
-	local cfg = loadBestConfig()
-	exportBox.Text = safeEncode(cfg) or "-- export failed --"
-	showToast("Export ready")
-end)
+-- Note: removed the exportBox/importBox and their import/export button handlers per request.
+-- loadBtn still attempts to load from file or memory as before.
 
 loadBtn.MouseButton1Click:Connect(function()
 	local ok, fileCfg = readConfigFile()
@@ -557,31 +577,6 @@ loadBtn.MouseButton1Click:Connect(function()
 	else
 		showToast("No config found")
 	end
-end)
-
-local importBtn = Instance.new("TextButton", settingsPage)
-importBtn.Size = UDim2.new(0,140,0,34); importBtn.Position = UDim2.new(0.04,0,0,sY); importBtn.Text = "Import JSON"; importBtn.Font = Enum.Font.Gotham; importBtn.BackgroundColor3 = Color3.fromRGB(120,70,160)
-local importCorner = Instance.new("UICorner", importBtn); importCorner.CornerRadius = UDim.new(0,8)
-importBtn.MouseButton1Click:Connect(function()
-	local txt = importBox.Text
-	if not txt or txt:match("^%s*$") then exportBox.Text = "-- No JSON provided --"; showToast("No JSON"); return end
-	local dec = safeDecode(txt)
-	if not dec or type(dec) ~= "table" then exportBox.Text = "-- Invalid JSON --"; showToast("Invalid JSON"); return end
-	configNow = dec
-	enableBox.Text = dec.enableScript or enableBox.Text
-	disableBox.Text = dec.disableScript or disableBox.Text
-	funnyBox.Text = dec.funnyScript or funnyBox.Text
-	enableBtn.BackgroundColor3 = Color3.fromRGB(unpack(dec.buttonColor or DEFAULT.buttonColor))
-	disableBtn.BackgroundColor3 = Color3.fromRGB(unpack(dec.accentColor or DEFAULT.accentColor))
-	titleLabel.Text = dec.title_text or titleLabel.Text
-	leftTabBtn.Text = dec.tab_left or leftTabBtn.Text
-	rightTabBtn.Text = dec.tab_right or rightTabBtn.Text
-	-- immediate visual sync
-	leftTabBtn.BackgroundColor3 = Color3.fromRGB(unpack(dec.buttonColor or DEFAULT.buttonColor))
-	rightTabBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-	setAttr("FP_config", dec)
-	persistConfig() -- ensure file + attribute written if saveMode allows
-	showToast("Imported and applied")
 end)
 
 -- Backup functionality
